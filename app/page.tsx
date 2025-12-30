@@ -11,7 +11,13 @@ type ChoiceView = { index: number; text: string };
 type Mode = "menu" | "game";
 
 export default function Page() {
+  type Mode = "menu" | "stats" | "game";
+
   const [mode, setMode] = useState<Mode>("menu");
+  const [pendingSlot, setPendingSlot] = useState<number | null>(null);
+
+  const [stats, setStats] = useState({ STR: 5, CHA: 5, WIT: 5 });
+  const STAT_POOL = 15; // example, change as you like
 
   const [storyJson, setStoryJson] = useState<any | null>(null);
   const [story, setStory] = useState<Story | null>(null);
@@ -67,10 +73,16 @@ export default function Page() {
     setChoices(s.currentChoices.map(c => ({ index: c.index, text: c.text })));
   }
 
-  function startFreshInSlot(slot: number) {
+  function startFreshInSlot(slot: number, chosenStats: { STR: number; CHA: number; WIT: number }) {
     if (!storyJson) return;
 
     const s = new Story(storyJson);
+
+    // Set Ink globals before any Continue()
+    s.variablesState["STR"] = chosenStats.STR;
+    s.variablesState["CHA"] = chosenStats.CHA;
+    s.variablesState["WIT"] = chosenStats.WIT;
+
     setStory(s);
     setActiveSlot(slot);
 
@@ -81,6 +93,56 @@ export default function Page() {
     saveToSlot(s, slot);
 
     setMode("game");
+  }
+
+  function StatEditor({
+    stats,
+    setStats,
+    pool,
+  }: {
+    stats: { STR: number; CHA: number; WIT: number };
+    setStats: (s: { STR: number; CHA: number; WIT: number }) => void;
+    pool: number;
+  }) {
+    const total = stats.STR + stats.CHA + stats.WIT;
+    const remaining = pool - total;
+
+    function setOne(k: "STR" | "CHA" | "WIT", v: number) {
+      const clamped = Math.max(0, Math.min(20, v));
+      setStats({ ...stats, [k]: clamped });
+    }
+
+    return (
+      <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
+        <div style={{ opacity: 0.85 }}>Remaining: {remaining}</div>
+
+        {(["STR", "CHA", "WIT"] as const).map(k => (
+          <div key={k} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div style={{ width: 50, fontWeight: 700 }}>{k}</div>
+            <button onClick={() => setOne(k, stats[k] - 1)} disabled={stats[k] <= 0}>-</button>
+            <div style={{ width: 30, textAlign: "center" }}>{stats[k]}</div>
+            <button
+              onClick={() => setOne(k, stats[k] + 1)}
+              disabled={remaining <= 0}
+            >
+              +
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function beginNewGame(slot: number) {
+    setPendingSlot(slot);
+    setStats({ STR: 5, CHA: 5, WIT: 5 }); // defaults
+    setMode("stats");
+  }
+
+  function confirmStats() {
+    if (pendingSlot === null) return;
+    startFreshInSlot(pendingSlot, stats);
+    setPendingSlot(null);
   }
 
   function loadSlot(slot: number) {
@@ -175,7 +237,7 @@ export default function Page() {
                 </div>
 
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <button onClick={() => startFreshInSlot(slot)}>
+                  <button onClick={() => beginNewGame(slot)}>
                     New Game
                   </button>
 
@@ -199,6 +261,31 @@ export default function Page() {
 
           <div style={{ marginTop: 18, opacity: 0.75, fontSize: 13 }}>
             Saves use localStorage, so they live per browser per device until deleted.
+          </div>
+        </div>
+      )}
+
+      {mode === "stats" && (
+        <div>
+          <h1 style={{ marginBottom: 8 }}>Create Character</h1>
+
+          <p style={{ marginTop: 0, opacity: 0.8 }}>
+            Distribute {STAT_POOL} points.
+          </p>
+
+          <StatEditor
+            stats={stats}
+            setStats={setStats}
+            pool={STAT_POOL}
+          />
+
+          <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+            <button onClick={() => { setMode("menu"); setPendingSlot(null); }}>
+              Back
+            </button>
+            <button onClick={confirmStats} disabled={stats.STR + stats.CHA + stats.WIT !== STAT_POOL}>
+              Confirm
+            </button>
           </div>
         </div>
       )}

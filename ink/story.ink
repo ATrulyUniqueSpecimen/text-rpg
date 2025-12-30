@@ -1,6 +1,9 @@
 VAR coins = 0
-VAR STR = 60
-VAR CHA = 10
+
+VAR STR = 0
+VAR CHA = 0
+VAR WIT = 0
+
 VAR took_goblin_coins = false
 
 You come across a goblin in the woods. What do you do?
