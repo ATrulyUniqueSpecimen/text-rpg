@@ -13,6 +13,9 @@ type Mode = "menu" | "game";
 export default function Page() {
   type Mode = "menu" | "stats" | "game";
 
+  const [uiCoins, setUiCoins] = useState<number>(0);
+  const [uiInventory, setUiInventory] = useState<string[]>([]);
+
   const [mode, setMode] = useState<Mode>("menu");
   const [pendingSlot, setPendingSlot] = useState<number | null>(null);
 
@@ -71,6 +74,8 @@ export default function Page() {
     else if (newLines.length) setLines(prev => [...prev, ...newLines]);
 
     setChoices(s.currentChoices.map(c => ({ index: c.index, text: c.text })));
+    
+    syncSidebar(s);
   }
 
   function startFreshInSlot(slot: number, chosenStats: { STR: number; CHA: number; WIT: number }) {
@@ -183,6 +188,21 @@ export default function Page() {
     setLines([]);
     setChoices([]);
     refreshSlotPresence();
+  }
+
+  function syncSidebar(s: Story) {
+    const coinsRaw = s.variablesState["coins"];
+    const coins = typeof coinsRaw === "number" ? coinsRaw : parseInt(String(coinsRaw ?? "0"), 10) || 0;
+    setUiCoins(coins);
+
+    const items: string[] = [];
+
+    if (s.variablesState["inv_rusty_sword"]) items.push("Rusty Sword");
+    if (s.variablesState["inv_old_sack"]) items.push("Old Sack");
+
+    // Add more flags here as you add items in Ink.
+
+    setUiInventory(items);
   }
 
   useEffect(() => {
@@ -299,18 +319,53 @@ export default function Page() {
             </div>
           </div>
 
-          <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-            {lines.map((t, idx) => (
-              <p key={idx}>{t}</p>
-            ))}
-          </div>
+          <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+            {/* Left: story */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                {lines.map((t, idx) => (
+                  <p key={idx}>{t}</p>
+                ))}
+              </div>
 
-          <div style={{ display: "grid", gap: 10, marginTop: 18 }}>
-            {choices.map(c => (
-              <button key={c.index} onClick={() => choose(c.index)}>
-                {c.text}
-              </button>
-            ))}
+              <div style={{ display: "grid", gap: 10, marginTop: 18 }}>
+                {choices.map(c => (
+                  <button key={c.index} onClick={() => choose(c.index)}>
+                    {c.text}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: sidebar */}
+            <aside
+              style={{
+                width: 240,
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: 10,
+                padding: 12,
+                position: "sticky",
+                top: 20,
+              }}
+            >
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>Inventory</div>
+
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ opacity: 0.8, fontSize: 14 }}>Coins</div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>{uiCoins}</div>
+              </div>
+
+              <div style={{ opacity: 0.8, fontSize: 14, marginBottom: 6 }}>Items</div>
+              {uiInventory.length === 0 ? (
+                <div style={{ opacity: 0.7, fontSize: 14 }}>Empty</div>
+              ) : (
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {uiInventory.map(item => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              )}
+            </aside>
           </div>
         </div>
       )}
